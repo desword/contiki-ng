@@ -36,21 +36,43 @@
 #ifndef PROJECT_CONF_H_
 #define PROJECT_CONF_H_
 
+// #define MODE_IEEE802_15_4 1   /* enable RPL and disable TSCH in Makefile */
+// #define MODE_BLE      2
+
+// #define MODE MODE_BLE
+// ---------------------------------------------------------------------------
+// /* Disable button shutdown functionality */
+// #define BUTTON_SENSOR_CONF_ENABLE_SHUTDOWN    0
 /*---------------------------------------------------------------------------*/
 /* Change to match your configuration */
-#define BOARD_CONF_DEBUGGER_DEVPACK             1
+#define BOARD_CONF_DEBUGGER_DEVPACK           1
 /*---------------------------------------------------------------------------*/
 #define PACKETBUF_CONF_SIZE                   1280
 #define QUEUEBUF_CONF_NUM                       1
 #define UIP_CONF_BUFFER_SIZE                  1280
 
+#define CC26XX_CONF_RADIO_MODE          CC26XX_RADIO_MODE_BLE
 #define NETSTACK_CONF_RADIO                 ble_cc2650_driver
 // #define NETSTACK_CONF_MAC                   ble_l2cap_driver
 
+// #define NETSTACK_CONF_RDC                   ble_null_par_driver
+//#define NETSTACK_CONF_MAC                   ble_l2cap_driver
+
+#define RTIMER_CONF_MULTIPLE_ACCESS       1
+
+/* BLE radio settings */
+#define BLE_MODE_CONF_INIT_PEER_ADDR      0x2471891A2A82
 
 /* BLE L2CAP settings */
-#define BLE_CONF_DEVICE_NAME          "My TI CC26xx device"
-#define BLE_CONF_ADV_INTERVAL         25
+#define BLE_CONF_DEVICE_NAME          "TI CC26xx server device"
+
+
+/* 6LoWPAN settings */
+//#define SICSLOWPAN_CONF_MAC_MAX_PAYLOAD       1280
+//#define SICSLOWPAN_CONF_COMPRESSION           SICSLOWPAN_COMPRESSION_HC06
+//#define SICSLOWPAN_CONF_COMPRESSION_THRESHOLD   0  /* always use compression */
+//#define SICSLOWPAN_CONF_FRAG                    0
+//#define SICSLOWPAN_FRAMER_HDRLEN                0
 
 /*/ * 6LoWPAN settings * / */
 #define SICSLOWPAN_CONF_MAC_MAX_PAYLOAD       1280
@@ -58,12 +80,21 @@
 #define SICSLOWPAN_CONF_COMPRESSION_THRESHOLD   0  /* always use compression */
 #define SICSLOWPAN_CONF_FRAG                    0
 #define SICSLOWPAN_FRAMER_HDRLEN                0
-/* */
-/*/ * network stack settings * / */
-#define UIP_CONF_ROUTER                         0
-#define UIP_CONF_ND6_SEND_NA                1
 
-// #define LOG_CONF_LEVEL_MAC                         LOG_LEVEL_DBG
+
+/* network layer settings */
+#define UIP_CONF_ROUTER                         1
+#define UIP_CONF_ND6_SEND_NA                    1
+#define UIP_CONF_ND6_SEND_RA          1
+#define UIP_CONF_IP_FORWARD                     0
+#define UIP_CONF_ND6_SEND_NS                    1
+
+/*/ * network stack settings * / */
+// #define UIP_CONF_ROUTER                         0
+// #define UIP_CONF_ND6_SEND_NA                1
+
+
+
 #define LOG_CONF_LEVEL_MAC        LOG_LEVEL_DBG
 #define LOG_CONF_LEVEL_RPL        LOG_LEVEL_DBG
 #define LOG_CONF_LEVEL_TCPIP        LOG_LEVEL_DBG
@@ -71,6 +102,14 @@
 #define LOG_CONF_LEVEL_6LOWPAN        LOG_LEVEL_DBG
 #define LOG_CONF_LEVEL_NULLNET        LOG_LEVEL_DBG
 #define LOG_CONF_LEVEL_LEVEL_MAIN        LOG_LEVEL_DBG
+
+
+
+
+// #define DEBUG_BLE_L2CAP        1
+
+
+
 
 
 /*---------------------------------------------------------------------------*/
