@@ -26,3 +26,8 @@ Engage with the community:
 
 * Gitter: https://gitter.im/contiki-ng
 * Twitter: https://twitter.com/contiki_ng
+
+
+New features added
+
+* IPv6 over BLE: server and client examples. (fixsing `ble-hal-cc26xx.c` and `ble-l2cap.c`)
