@@ -98,6 +98,10 @@ typedef struct {
 static uint8_t l2cap_channel_count;
 static l2cap_channel_t l2cap_channels[L2CAP_CHANNELS];
 static process_event_t l2cap_tx_event;
+
+/*----- Function ------*/
+static void actual_send(mac_callback_t sent_callback, void *ptr, l2cap_channel_t *ichannel);
+
 /*---------------------------------------------------------------------------*/
 static l2cap_channel_t *
 get_channel_for_addr(const linkaddr_t *peer_addr)
@@ -494,8 +498,11 @@ send(mac_callback_t sent_callback, void *ptr)
       channel->tx_buffer.sdu_length = data_len;
       if(channel->tx_buffer.sdu_length > 0) {
         memcpy(&channel->tx_buffer.sdu, packetbuf_dataptr(), data_len);
-        mac_call_sent_callback(sent_callback, ptr, MAC_TX_DEFERRED, 1);
-        process_post(&ble_l2cap_tx_process, l2cap_tx_event, (void *)channel);
+        // mac_call_sent_callback(sent_callback, ptr, MAC_TX_DEFERRED, 1);
+        // process_post(&ble_l2cap_tx_process, l2cap_tx_event, (void *)channel);
+
+        // [cgl] Now, directly send ble packets. [OPT] may set to backoff a random time by setup a timer to trigger the send.
+        actual_send(sent_callback, ptr, channel);
       }
       
     }
@@ -661,6 +668,8 @@ input(void)
     if(channel == NULL) {
       LOG_WARN("input (TX_EVENT): no channel found for CID: %d\n", channel_id);
     } else if(channel->tx_buffer.sdu_length > 0) {
+
+
       process_post(&ble_l2cap_tx_process, l2cap_tx_event, (void *)channel);
     }
   }
@@ -691,6 +700,85 @@ const struct mac_driver ble_l2cap_driver = {
   off,
 };
 /*---------------------------------------------------------------------------*/
+
+static void actual_send(mac_callback_t sent_callback, void *ptr, l2cap_channel_t *ichannel)
+{
+  uint16_t data_len;
+  uint16_t frame_len;
+  uint16_t num_buffer;
+  l2cap_channel_t *channel = ichannel;
+  uint8_t first_fragment;
+  uint16_t used_mps;
+  uint16_t credits;
+
+  // PROCESS_BEGIN();
+  // LOG_DBG("starting ble_mac_tx_process\n");
+
+  // while(1) {
+  //   PROCESS_YIELD_UNTIL(ev == l2cap_tx_event);
+    if(channel != NULL) {
+      NETSTACK_RADIO.get_value(RADIO_CONST_BLE_BUFFER_AMOUNT, (radio_value_t *)&num_buffer);
+      first_fragment = (channel->tx_buffer.current_index == 0);
+      used_mps = MIN(channel->channel_own.mps, channel->channel_peer.mps);
+      credits = channel->channel_peer.credits;
+
+      LOG_DBG("process: sending - first: %d, used_mps: %3d, num_buffers: %2d, credits: %2d\n",
+              first_fragment, used_mps, num_buffer, credits);
+      if((channel->tx_buffer.sdu_length > 0) && (num_buffer > 0) && (credits > 0)) {
+        packetbuf_clear();
+        if(first_fragment) {
+          packetbuf_hdralloc(L2CAP_FIRST_HEADER_SIZE);
+          used_mps -= L2CAP_FIRST_HEADER_SIZE;
+          data_len = MIN(channel->tx_buffer.sdu_length, used_mps);
+          frame_len = data_len + 2;
+
+          /* set L2CAP header fields */
+          memcpy(packetbuf_hdrptr(), &frame_len, 2);          /* fragment size */
+          memcpy(packetbuf_hdrptr() + 2, &channel->channel_peer.cid, 2);    /* L2CAP channel id*/
+          memcpy(packetbuf_hdrptr() + 4, &channel->tx_buffer.sdu_length, 2);  /* overall packet size */
+        } else {
+          packetbuf_hdralloc(L2CAP_SUBSEQ_HEADER_SIZE);
+          used_mps -= L2CAP_SUBSEQ_HEADER_SIZE;
+          data_len = MIN((channel->tx_buffer.sdu_length - channel->tx_buffer.current_index), used_mps);
+          frame_len = data_len;
+
+          /* set L2CAP header fields */
+          memcpy(packetbuf_hdrptr(), &frame_len, 2);          /* fragment size */
+          memcpy(packetbuf_hdrptr() + 2, &channel->channel_peer.cid, 2);      /* L2CAP channel id*/
+        }
+
+        /* copy payload */
+        memcpy(packetbuf_dataptr(),
+               &channel->tx_buffer.sdu[channel->tx_buffer.current_index],
+               data_len);
+        packetbuf_set_datalen(data_len);
+        channel->tx_buffer.current_index += data_len;
+
+        /* send the fragment */
+        packetbuf_set_addr(PACKETBUF_ADDR_RECEIVER, &channel->peer_addr);
+        packetbuf_set_addr(PACKETBUF_ADDR_SENDER, &linkaddr_node_addr);
+        NETSTACK_RADIO.send(packetbuf_hdrptr(), packetbuf_totlen());
+        channel->channel_peer.credits--;
+
+        /* reset the L2CAP TX buffer if packet is finished */
+        if(channel->tx_buffer.current_index == channel->tx_buffer.sdu_length) {
+          channel->tx_buffer.current_index = 0;
+          channel->tx_buffer.sdu_length = 0;
+        }
+        // [cgl] add here for RPL. 
+        mac_call_sent_callback(sent_callback, ptr, MAC_TX_OK, 1);
+
+      }
+    } else {
+      LOG_WARN("process. channel is NULL\n");
+    }
+  // }
+
+  // PROCESS_END();
+  // LOG_DBG("stopped ble_mac_tx_process\n");
+}
+
+
 PROCESS_THREAD(ble_l2cap_tx_process, ev, data)
 {
   uint16_t data_len;
@@ -755,6 +843,7 @@ PROCESS_THREAD(ble_l2cap_tx_process, ev, data)
           channel->tx_buffer.current_index = 0;
           channel->tx_buffer.sdu_length = 0;
         }
+
       }
     } else {
       LOG_WARN("process. channel is NULL\n");

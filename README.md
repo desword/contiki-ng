@@ -30,4 +30,7 @@ Engage with the community:
 
 New features added
 
-* IPv6 over BLE: server and client examples. (fixsing `ble-hal-cc26xx.c` and `ble-l2cap.c`)
+* IPv6 over BLE: server and client examples. 
+	* fixing the lack of UIP_CONF_ROUTER in `ble-hal-cc26xx.c` and `ble-l2cap.c`.
+* rpl-udp-ble examples update. 
+	* fixing `ble-l2cap.c`, the function `mac_call_sent_callback` should be set with a `MAC_TX_OK`, such that `link-stats.c` will add the transmission count and RPL will refresh the neighbor.
